@@ -53,6 +53,8 @@ int init_server(const char *ip, int port) {
         return -1;
     }
 
+    LOG("epoll_ctl add event: <EPOLLIN>, fd: %d.", g_listen_fd);
+
     ee.data.fd = g_listen_fd;
     ee.events = EPOLLIN;
     if (epoll_ctl(g_epfd, EPOLL_CTL_ADD, g_listen_fd, &ee) < 0) {
@@ -61,7 +63,6 @@ int init_server(const char *ip, int port) {
         close(g_listen_fd);
         return -1;
     }
-    LOG("epoll_ctl add event: <EPOLLIN>, fd: %d.", g_listen_fd);
 
     LOG("server start now, ip: %s, port: %d.",
         (ip == NULL || !strlen(ip)) ? "127.0.0.1" : ip, port);
@@ -200,10 +201,10 @@ int del_client(int fd) {
     }
 
     if (c->events & (EPOLLIN | EPOLLOUT)) {
+        LOG("epoll_ctl <delete events>, fd: %d.", fd);
         if (epoll_ctl(g_epfd, EPOLL_CTL_DEL, fd, NULL) < 0) {
             LOG_SYS_ERR("epoll_ctl <delete events> failed! fd: %d.", fd);
         }
-        LOG("epoll_ctl <delete events>, fd: %d.", fd);
     }
 
     close(fd);
@@ -239,13 +240,14 @@ int accept_data(int listen_fd) {
     port = ntohs(sai->sin_port);
     LOG("accept new client, fd: %d, ip: %s, port: %d", fd, ip, port);
 
+    LOG("set socket nonblocking. fd: %d.", fd);
     if (set_nonblocking(fd) < 0) {
         close(fd);
         return -1;
     }
-    LOG("set socket nonblocking. fd: %d.", fd);
 
     /* epoll ctrl client's events. */
+    LOG("epoll_ctl add event: <EPOLLIN>, fd: %d.", fd);
     ee.data.fd = fd;
     ee.events = EPOLLIN;
     if (epoll_ctl(g_epfd, EPOLL_CTL_ADD, fd, &ee) < 0) {
@@ -254,7 +256,6 @@ int accept_data(int listen_fd) {
         return -1;
     }
 
-    LOG("epoll_ctl add event: <EPOLLIN>, fd: %d.", fd);
     return fd;
 }
 
@@ -341,6 +342,8 @@ int handle_write_events(int fd) {
 
     if (c->wlen > 0) {
         if (!(c->events & EPOLLOUT)) {
+            LOG("epoll_ctl add event: <EPOLLOUT>, fd: %d.", fd);
+
             /* write next time, then control EPOLLOUT. */
             ee.data.fd = c->fd;
             ee.events = c->events;
@@ -352,11 +355,12 @@ int handle_write_events(int fd) {
                 return -1;
             }
             c->events = ee.events;
-            LOG("epoll_ctl add event: <EPOLLOUT>, fd: %d.", fd);
             return 1;
         }
     } else {
         if (c->events & EPOLLOUT) {
+            LOG("epoll_ctl delete event: <EPOLLOUT>, fd: %d.", fd);
+
             /* no data to write, then delete EPOLLOUT.*/
             ee.data.fd = c->fd;
             ee.events = c->events;
@@ -368,7 +372,6 @@ int handle_write_events(int fd) {
                 return -1;
             }
             c->events = ee.events;
-            LOG("epoll_ctl delete event: <EPOLLOUT>, fd: %d.", fd);
             return 1;
         }
     }

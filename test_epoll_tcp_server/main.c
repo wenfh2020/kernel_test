@@ -38,6 +38,8 @@ int main(int argc, char **argv) {
         port = atoi(argv[2]);
     }
 
+    LOG("pls input 's' to run server or 'c' to run client!");
+
     while (1) {
         scanf("%s", buf);
 
