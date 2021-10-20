@@ -23,9 +23,9 @@ client_t *add_client(int fd, int events); /* add a new client. */
 client_t *get_client(int fd);             /* get client ptr. */
 int del_client(int fd);                   /* close fd and clear data. */
 
-int init_server(const char *ip, int port);
-void run_server();
-int set_nonblocking(int fd); /* set fd unblock. */
+int init_epoll(int listen_fd);
+int init_server(int worker_index, const char *ip, int port);
+void run_server(int worker_index);
 
 int read_data(int fd);          /* read data into buffer. */
 int write_data(int fd);         /* write data to client. */

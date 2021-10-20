@@ -1,8 +1,3 @@
-/* author: wenfh2020/2021.06.18
- * desc:   epoll test code, test tcp ipv4 async's server.
- * ver:    Linux 5.0.1
- * test:   make rootfs --> input 's' --> input 'c' */
-
 #include <arpa/inet.h>
 #include <net/if.h>
 #include <netdb.h>
@@ -14,7 +9,7 @@
 
 #include "server.h"
 
-#define WORKER_CNT 2       /* fork workers to listen. */
+#define WORKER_CNT 2
 #define SEND_DATA "hello." /* client send to server's test data. */
 
 #define SERVER_PORT 5001      /* server's listen port. */
@@ -74,24 +69,23 @@ void proc(const char *ip, int port) {
 int workers(int worker_cnt, const char *ip, int port) {
     LOG("workers...");
 
-    int i, cnt, pid;
+    int i, fd, pid;
 
-    cnt = worker_cnt;
-    for (i = 0; i < cnt; i++) {
-        if (init_server(i, ip, port) < 0) {
-            LOG("init server failed!");
-            return 0;
-        }
+    fd = init_server(ip, port);
+    if (fd == -1) {
+        LOG("init server failed! %s : %d", ip, port);
+        return -1;
     }
 
     for (i = 0; i < worker_cnt; i++) {
         pid = fork();
         if (pid == 0) {
             /* child. */
-            run_server(i);
+            run_server(fd);
+            exit(1);
         } else if (pid > 0) {
             /* parent */
-            LOG("for child pid: %d\n", pid);
+            LOG("child pid: %d", pid);
         } else {
             /* error */
             LOG_SYS_ERR("fork failed!");

@@ -1,5 +1,5 @@
 /* author: wenfh2020/2021.06.18
- * desc:   epoll test code, test tcp ipv4 async's server.
+ * desc:   test tcp thundering herd in epoll.
  * ver:    Linux 5.0.1
  * test:   make rootfs --> input 's' --> input 'c' */
 
@@ -74,24 +74,22 @@ void proc(const char *ip, int port) {
 int workers(int worker_cnt, const char *ip, int port) {
     LOG("workers...");
 
-    int i, cnt, pid;
+    int i, fd, pid;
 
-    cnt = worker_cnt;
-    for (i = 0; i < cnt; i++) {
-        if (init_server(i, ip, port) < 0) {
-            LOG("init server failed!");
-            return 0;
-        }
+    fd = init_server(ip, port);
+    if (fd < 0) {
+        LOG("init server failed!");
+        return 0;
     }
 
     for (i = 0; i < worker_cnt; i++) {
         pid = fork();
         if (pid == 0) {
             /* child. */
-            run_server(i);
+            run_server(i, fd);
         } else if (pid > 0) {
             /* parent */
-            LOG("for child pid: %d\n", pid);
+            LOG("fork child, pid: %d", pid);
         } else {
             /* error */
             LOG_SYS_ERR("fork failed!");

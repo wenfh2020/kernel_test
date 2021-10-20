@@ -1,7 +1,7 @@
 #include "common.h"
 
 #include <arpa/inet.h>
-#include <errno.h>
+#include <fcntl.h>
 #include <net/if.h>
 #include <stdarg.h>
 #include <sys/ioctl.h>
@@ -10,9 +10,10 @@
 #include <time.h>
 
 #define MAX_IFS 64
+// #define _LOG_TYPE_
 
-int log_data(int is_server, int is_err,
-             int file_line, const char *func, const char *fmt, ...) {
+int log_data(int is_err, const char *file,
+             const char *func, int file_line, int err, const char *fmt, ...) {
     int off;
     va_list ap;
     char buf[64];
@@ -29,16 +30,12 @@ int log_data(int is_server, int is_err,
     off = strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S.", tm);
     snprintf(buf + off, sizeof(buf) - off, "%03d", (int)tv.tv_usec / 1000);
 
-    // printf("%s[%s:%d] %s\n", buf, func, file_line, msg);
-    // return 1;
-
     if (is_err) {
-        printf("[%s][%s][%s:%d][errno: %d, errstr: %s] %s\n",
-               is_server ? "s" : "c",
-               buf, func, file_line, errno, strerror(errno), msg);
+        printf("[%d][%s][%s][%s:%d][errno: %d, errstr: %s] %s\n",
+               getpid(), buf, file, func, file_line, err, strerror(err), msg);
     } else {
-        printf("[%s][%s][%s:%d] %s\n",
-               is_server ? "s" : "c", buf, func, file_line, msg);
+        printf("[%d][%s][%s][%s:%d] %s\n",
+               getpid(), buf, file, func, file_line, msg);
     }
 
     return 1;
@@ -117,4 +114,64 @@ int bring_up_net_interface(const char *ip) {
     }
 
     return 0;
+}
+
+int set_nonblocking(int fd) {
+    int val = fcntl(fd, F_GETFL);
+    val |= O_NONBLOCK;
+    if (fcntl(fd, F_SETFL, val) < 0) {
+        LOG_SYS_ERR("set non block failed! fd: %d.", fd);
+        return -1;
+    }
+    return 0;
+}
+
+int proc_client(const char *ip, int port, char *data) {
+    LOG("run client...");
+
+    int fd, ret;
+    char buf[1024];
+    char portstr[8];
+    struct sockaddr_in addr;
+
+    strcpy(buf, data);
+    snprintf(portstr, 8, "%d", port);
+
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(port);
+    addr.sin_addr.s_addr = inet_addr(ip);
+    memset(&addr.sin_zero, 0, 8);
+
+    fd = socket(PF_INET, SOCK_STREAM, AF_UNSPEC);
+    if (fd < 0) {
+        LOG_SYS_ERR("create new socket failed!");
+        return 0;
+    }
+
+    LOG("client connect to server! ip: %s, port: %d.", ip, port);
+
+    ret = connect(fd, (struct sockaddr *)&addr, sizeof(struct sockaddr));
+    if (ret == -1) {
+        LOG_SYS_ERR("connect failed!");
+        close(fd);
+        return 0;
+    }
+
+    ret = write(fd, buf, strlen(buf));
+    if (ret == -1) {
+        LOG_SYS_ERR("send failed! fd: %d", fd);
+        return 0;
+    }
+    LOG("send data to server, data: %s", buf);
+
+    ret = read(fd, buf, sizeof(buf));
+    if (ret == -1) {
+        LOG_SYS_ERR("read data failed! fd: %d.", fd);
+        return 0;
+    }
+    LOG("read data from server, data: %s", buf);
+
+    close(fd);
+    LOG("close client, fd: %d", fd);
+    return 1;
 }
