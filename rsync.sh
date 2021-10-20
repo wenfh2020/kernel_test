@@ -8,11 +8,12 @@ dst=root@lu14:/root/linux-5.0.1/kernel_test/
 echo "$src --> $dst"
 
 rsync -ravz --exclude=".git/" \
-            --exclude=".vscode/" \
-            --include="*.c" \
-            --include="Makefile" \
-            --include="*.md" \
-            --include="*.h" \
-            --include="*/" \
-            --exclude="*" \
-            $src $dst
+    --exclude=".vscode/" \
+    --include="*.c" \
+    --include="Makefile" \
+    --include="*.mk" \
+    --include="*.md" \
+    --include="*.h" \
+    --include="*/" \
+    --exclude="*" \
+    $src $dst

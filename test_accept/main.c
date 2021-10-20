@@ -15,7 +15,7 @@
 #define SERVER_PORT 5001      /* server's listen port. */
 #define SERVER_IP "127.0.0.1" /* server's ip. */
 
-/* fork a child process to run epoll server. */
+/* fork a child process to run tcp server. */
 void proc(const char *ip, int port);
 
 /* fork workers to listen. */
