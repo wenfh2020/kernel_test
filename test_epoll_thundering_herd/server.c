@@ -5,6 +5,15 @@
 #include <sys/epoll.h>
 #include <sys/socket.h>
 
+#define _EPOLL_EXCLUSIVE_
+
+#ifdef _EPOLL_EXCLUSIVE_
+#ifndef EPOLLEXCLUSIVE
+/* Set exclusive wakeup mode for the target file descriptor */
+#define EPOLLEXCLUSIVE (1U << 28)
+#endif
+#endif
+
 int init_server(const char *ip, int port) {
     int s;
     int reuse = 1;
@@ -69,7 +78,11 @@ void run_server(int worker_index, int listen_fd) {
     }
     LOG("create epoll fd: %d", epfd);
 
+#ifdef _EPOLL_EXCLUSIVE_
+    ee.events = EPOLLIN | EPOLLEXCLUSIVE;
+#else
     ee.events = EPOLLIN;
+#endif
     ee.data.fd = listen_fd;
     if (epoll_ctl(epfd, EPOLL_CTL_ADD, listen_fd, &ee) < 0) {
         LOG_SYS_ERR("epoll_ctl add event: <EPOLLIN> failed! fd: %d.", listen_fd);

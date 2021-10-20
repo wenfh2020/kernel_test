@@ -10,7 +10,6 @@
 #include <time.h>
 
 #define MAX_IFS 64
-// #define _LOG_TYPE_
 
 int log_data(int is_err, const char *file,
              const char *func, int file_line, int err, const char *fmt, ...) {
