@@ -10,6 +10,7 @@
 #include <time.h>
 
 #define MAX_IFS 64
+#define LOOP_IP "127.0.0.1"
 
 int log_data(int is_err, const char *file,
              const char *func, int file_line, int err, const char *fmt, ...) {
@@ -46,7 +47,7 @@ int bring_up_net_interface(const char *ip) {
     struct sockaddr_in sa;
 
     sa.sin_family = AF_INET;
-    sa.sin_addr.s_addr = inet_addr("127.0.0.1");
+    sa.sin_addr.s_addr = inet_addr(LOOP_IP);
     fd = socket(PF_INET, SOCK_DGRAM, IPPROTO_IP);
 
     strncpy(ifreqlo.ifr_name, "lo", sizeof("lo"));
@@ -57,9 +58,8 @@ int bring_up_net_interface(const char *ip) {
     ioctl(fd, SIOCSIFFLAGS, &ifreqlo);
     close(fd);
 
-    LOG("bring up interface: eth0");
-
-    if (ip != NULL && !strlen(ip)) {
+    if (ip != NULL && strlen(ip) != 0 && strcmp(ip, LOOP_IP) != 0) {
+        LOG("bring up interface: eth0, ip: %s", ip);
         sa.sin_family = AF_INET;
         sa.sin_addr.s_addr = inet_addr(ip);
         fd = socket(PF_INET, SOCK_DGRAM, IPPROTO_IP);
@@ -68,7 +68,16 @@ int bring_up_net_interface(const char *ip) {
         ioctl(fd, SIOCSIFADDR, &ifreqlo);
         ioctl(fd, SIOCGIFFLAGS, &ifreqlo);
         ifreqlo.ifr_flags |= IFF_UP | IFF_RUNNING;
-        ioctl(fd, SIOCSIFFLAGS, &ifreqlo);
+        ((unsigned char *)&ifreqlo.ifr_hwaddr.sa_data)[0] = 0x02;
+        ((unsigned char *)&ifreqlo.ifr_hwaddr.sa_data)[1] = 0x42;
+        ((unsigned char *)&ifreqlo.ifr_hwaddr.sa_data)[2] = 0xc0;
+        ((unsigned char *)&ifreqlo.ifr_hwaddr.sa_data)[3] = 0xa8;
+        ((unsigned char *)&ifreqlo.ifr_hwaddr.sa_data)[4] = 0x28;
+        ((unsigned char *)&ifreqlo.ifr_hwaddr.sa_data)[5] = 0x05;
+        if (ioctl(fd, SIOCSIFFLAGS, &ifreqlo) < 0) {
+            LOG_SYS_ERR("ioctl(SIOCGIFCONF) failed!");
+            return 0;
+        }
         close(fd);
     }
 
@@ -156,12 +165,13 @@ int proc_client(const char *ip, int port, char *data) {
         return 0;
     }
 
+    LOG("begin to send data to server, fd: %d", fd);
     ret = write(fd, buf, strlen(buf));
     if (ret == -1) {
         LOG_SYS_ERR("send failed! fd: %d", fd);
         return 0;
     }
-    LOG("send data to server, data: %s", buf);
+    LOG("send data to server, fd: %d, data: %s", fd, buf);
 
     ret = read(fd, buf, sizeof(buf));
     if (ret == -1) {

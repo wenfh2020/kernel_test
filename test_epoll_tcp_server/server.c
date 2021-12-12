@@ -284,6 +284,8 @@ int read_data(int fd) {
     memset(rbuf, 0, 1024);
 
     while (1) {
+        LOG("begin to read data, fd: %d", fd);
+
         rlen = read(fd, rbuf, 1024);
         if (rlen == 0) {
             return 0;
